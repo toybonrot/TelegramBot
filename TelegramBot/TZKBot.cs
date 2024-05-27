@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TelegramBot;
 using Telegram.Bot;
 using Telegram.Bots.Extensions;
 using Telegram.Bot.Types;
@@ -73,7 +74,7 @@ namespace TelegramBot
             }
             else if (message.Text == "Пошук отелю")
             {
-                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть місто прибуття /getHotel (Місто)");
+                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть місто прибуття /getHotel ({Місто}, {час прибуття}, {час відбуття})");
             }
             else if (message.Text == "Додати до списку")
             {
@@ -81,15 +82,26 @@ namespace TelegramBot
             }
             else if (message.Text == "Видалити з списку")
             {
-                await botClient.SendTextMessageAsync(message.Chat.Id, "Правильно блять");
+                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть id отелю, який бажаєте видалити");
             }
+            //else if (message.Text == "0/10")
+            //{
+            //    await botClient.SendPhotoAsync(chatId: message.Chat.Id, InputFile.FromUri("https://static.wikia.nocookie.net/leagueoflegends/images/c/c9/Yasuo_Render.png/revision/latest?cb=20200514001932") , caption: "Смерть похожа на ветер.");
+            //}
             else if (arr.Length > 1) 
             {
                 if (arr[0] == "/getHotel" && arr[1] != null)
                 {
-                    foreach (var i in arr)
+                    //foreach (var i in arr)
+                    //{
+                    //    Console.WriteLine(i);
+                    //}
+                    HotelClient hotelClient = new HotelClient();
+                    SearchHotel hotels = hotelClient.GetHotel(arr[1], arr[2], arr[3]).Result;
+                    int i = 0;
+                    while (true)
                     {
-                        Console.WriteLine(i);
+                        await botClient.SendPhotoAsync(message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[i].property.photoUrls[0]}"), caption: $"{hotels.data.hotels[i].property.name}");
                     }
                 } 
             }
