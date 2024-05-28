@@ -20,6 +20,21 @@ namespace TelegramBot
         TelegramBotClient botClient = new TelegramBotClient("6500128752:AAESnmHzG59jUPeZxbsNJvB05Sjzip6WQ1E");
         CancellationToken cancellationToken = new CancellationToken();
         ReceiverOptions receiverOptions = new ReceiverOptions { AllowedUpdates = { } };
+        int k = 0;
+        SearchHotel hotels = new SearchHotel();
+        InlineKeyboardMarkup inlineKeyboard = new InlineKeyboardMarkup(
+    new List<InlineKeyboardButton[]>()
+    {
+                                        new InlineKeyboardButton[]
+                                        {
+                                            InlineKeyboardButton.WithCallbackData("Попередній", "button1"),
+                                            InlineKeyboardButton.WithCallbackData("Наступний", "button2"),
+                                        },
+                                        new InlineKeyboardButton[]
+                                        {
+                                            InlineKeyboardButton.WithCallbackData("Додати до списку", "button3"),
+                                        },
+    });
         public async Task Start()
         {
             botClient.StartReceiving(HandlerUpdateAsync, HandlerError, receiverOptions, cancellationToken);
@@ -41,9 +56,13 @@ namespace TelegramBot
 
         private async Task HandlerUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
-            if (update.Type == UpdateType.Message && update?.Message?.Text != null) 
+            if (update.Type == UpdateType.Message && update?.Message?.Text != null)
             {
                 await HandlerMessageAsync(botClient, update.Message);
+            }
+            if (update.Type == UpdateType.CallbackQuery)
+            {
+                await HanlderCallBackQuertAsync(botClient, update.CallbackQuery);
             }
         }
         private async Task HandlerMessageAsync(ITelegramBotClient botClient, Message message)
@@ -64,7 +83,7 @@ namespace TelegramBot
             else if (message.Text == "/command")
             {
                 ReplyKeyboardMarkup replaKeyboardMarkup = new(new[]
-                { new KeyboardButton[] {"Пошук отелю", "Додати до списку", "Видалити з списку" }
+                { new KeyboardButton[] {"Пошук отелю", "Отримати список", "Знайти розваги в місті" }
                 })
                 {
                     ResizeKeyboard = true
@@ -74,36 +93,68 @@ namespace TelegramBot
             }
             else if (message.Text == "Пошук отелю")
             {
-                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть місто прибуття /getHotel ({Місто}, {час прибуття}, {час відбуття})");
+                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть місто прибуття /GetHotel {Місто}, {час прибуття}, {час відбуття}");
             }
-            else if (message.Text == "Додати до списку")
+            else if (message.Text == "Отримати список")
             {
-                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть id отелю, який бажаєте додати");
+                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть /GetList");
             }
-            else if (message.Text == "Видалити з списку")
+            else if (message.Text == "Знайти розваги в місті")
             {
-                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть id отелю, який бажаєте видалити");
+                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть /GetAttraction");
             }
-            //else if (message.Text == "0/10")
-            //{
-            //    await botClient.SendPhotoAsync(chatId: message.Chat.Id, InputFile.FromUri("https://static.wikia.nocookie.net/leagueoflegends/images/c/c9/Yasuo_Render.png/revision/latest?cb=20200514001932") , caption: "Смерть похожа на ветер.");
-            //}
-            else if (arr.Length > 1) 
+            else if (arr.Length > 1)
             {
-                if (arr[0] == "/getHotel" && arr[1] != null)
+                if (arr[0] == "/GetHotel" && arr[1] != null)
                 {
-                    //foreach (var i in arr)
-                    //{
-                    //    Console.WriteLine(i);
-                    //}
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Шукаю...");
                     HotelClient hotelClient = new HotelClient();
-                    SearchHotel hotels = hotelClient.GetHotel(arr[1], arr[2], arr[3]).Result;
-                    int i = 0;
-                    while (true)
-                    {
-                        await botClient.SendPhotoAsync(message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[i].property.photoUrls[0]}"), caption: $"{hotels.data.hotels[i].property.name}");
-                    }
-                } 
+                    k = 0;
+                    hotels = hotelClient.GetHotel(arr[1], arr[2], arr[3], message.Chat.Id).Result;
+                    await botClient.SendPhotoAsync(message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"), caption: $"{hotels.data.hotels[k].property.name}\n" +
+                        $"Загальний опис: ({hotels.data.hotels[k].accessibilityLabel})\n\n" +
+                    $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore}\n" +
+                    $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
+                    $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value} " +
+                    $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}",
+                    replyMarkup: inlineKeyboard);
+                }
+                else if (arr[0] == "/GetList")
+                {
+
+                }
+            }
+        }
+        private async Task HanlderCallBackQuertAsync(ITelegramBotClient botClient, CallbackQuery callback)
+        {
+
+            if (callback.Data == "button1" && k != 0)
+            {
+                k--;
+                await botClient.SendPhotoAsync(callback.Message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"), 
+                    caption: $"{hotels.data.hotels[k].property.name}\nЗагальний опис: ({hotels.data.hotels[k].accessibilityLabel})\n\n" +
+                    $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore}\n" +
+                    $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
+                    $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value} " +
+                    $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}", 
+                    replyMarkup: inlineKeyboard);
+            }
+            else if (callback.Data == "button2" && k <= hotels.data.hotels.Length && hotels != null)
+            {
+                k++;
+                await botClient.SendPhotoAsync(callback.Message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"), 
+                    caption: $"{hotels.data.hotels[k].property.name}\nЗагальний опис: ({hotels.data.hotels[k].accessibilityLabel})\n\n" +
+                    $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore}\n" +
+                    $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
+                    $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value} " +
+                    $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}",
+                    replyMarkup: inlineKeyboard);
+            }
+            else if (callback.Data == "button3" && k <= hotels.data.hotels.Length && hotels != null)
+            {
+                HotelClient hotelClient = new HotelClient();
+                hotelClient.InsertHotel(hotels, callback.Message.Chat.Id, k);
+                await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Додав");
             }
         }
     }
