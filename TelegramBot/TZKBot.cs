@@ -22,6 +22,7 @@ namespace TelegramBot
         ReceiverOptions receiverOptions = new ReceiverOptions { AllowedUpdates = { } };
         int k = 0;
         SearchHotel hotels = new SearchHotel();
+        List<BaseHotel> baseHotels = new List<BaseHotel>();
         InlineKeyboardMarkup inlineKeyboard = new InlineKeyboardMarkup(
     new List<InlineKeyboardButton[]>()
     {
@@ -33,6 +34,19 @@ namespace TelegramBot
                                         new InlineKeyboardButton[]
                                         {
                                             InlineKeyboardButton.WithCallbackData("Додати до списку", "button3"),
+                                        },
+    });
+        InlineKeyboardMarkup inlineKeyboard2 = new InlineKeyboardMarkup(
+    new List<InlineKeyboardButton[]>()
+    {
+                                        new InlineKeyboardButton[]
+                                        {
+                                            InlineKeyboardButton.WithCallbackData("Попередній", "button4"),
+                                            InlineKeyboardButton.WithCallbackData("Наступний", "button5"),
+                                        },
+                                        new InlineKeyboardButton[]
+                                        {
+                                            InlineKeyboardButton.WithCallbackData("Видалити зі списку", "button6"),
                                         },
     });
         public async Task Start()
@@ -60,7 +74,7 @@ namespace TelegramBot
             {
                 await HandlerMessageAsync(botClient, update.Message);
             }
-            if (update.Type == UpdateType.CallbackQuery)
+            else if (update.Type == UpdateType.CallbackQuery)
             {
                 await HanlderCallBackQuertAsync(botClient, update.CallbackQuery);
             }
@@ -93,7 +107,9 @@ namespace TelegramBot
             }
             else if (message.Text == "Пошук отелю")
             {
-                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть місто прибуття /GetHotel {Місто}, {час прибуття}, {час відбуття}");
+                await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть місто прибуття /GetHotel " +
+                    "\n{Місто}, {час прибуття}, {час відбуття}\nМіста треба писати без пробілів та англійскою\n " +
+                    "Приклад: /GetHotel Kyiv, 2024-12-01, 2024-12-31");
             }
             else if (message.Text == "Отримати список")
             {
@@ -103,24 +119,48 @@ namespace TelegramBot
             {
                 await botClient.SendTextMessageAsync(message.Chat.Id, "Введіть /GetAttraction");
             }
-            else if (arr.Length > 1)
+            else if (arr.Length >= 1)
             {
-                if (arr[0] == "/GetHotel" && arr[1] != null)
+                if (arr[0] == "/GetHotel")
                 {
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "Шукаю...");
+                    if (arr.Length == 4)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat.Id, "Шукаю...");
+                        HotelClient hotelClient = new HotelClient();
+                        k = 0;
+                        hotels = hotelClient.GetHotel(arr[1], arr[2], arr[3], message.Chat.Id).Result;
+                        if (hotels.data.hotels.Length != 0)
+                        {
+                            await botClient.SendPhotoAsync(message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"),
+                                caption: $"{hotels.data.hotels[k].property.name}\n" +
+                                 $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore:f}\n" +
+                                 $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
+                                 $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value:f} " +
+                                 $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}",
+                                 replyMarkup: inlineKeyboard);
+                        }
+                        else { await botClient.SendTextMessageAsync(message.Chat.Id, "Нічого не знайшов"); }
+                    }
+                    else { await botClient.SendTextMessageAsync(message.Chat.Id, "Приклад: /GetHotel Kyiv, 2024-12-01, 2024-12-31"); }
+
+                }
+                if (arr[0] == "/GetList")
+                {
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Зачекайте...");
                     HotelClient hotelClient = new HotelClient();
                     k = 0;
-                    hotels = hotelClient.GetHotel(arr[1], arr[2], arr[3], message.Chat.Id).Result;
-                    await botClient.SendPhotoAsync(message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"), caption: $"{hotels.data.hotels[k].property.name}\n" +
-                        $"Загальний опис: ({hotels.data.hotels[k].accessibilityLabel})\n\n" +
-                    $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore}\n" +
-                    $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
-                    $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value} " +
-                    $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}",
-                    replyMarkup: inlineKeyboard);
-                }
-                else if (arr[0] == "/GetList")
-                {
+                    baseHotels = hotelClient.GetHotelList(message.Chat.Id).Result;
+                    if (baseHotels.Count != 0 && k < baseHotels.Count)
+                    {
+                        await botClient.SendPhotoAsync(message.Chat.Id, InputFile.FromUri($"{baseHotels[k].PhotoURL}"),
+                            caption: $"{baseHotels[k].Name}\n" +
+                            $"Кількість зірок: {baseHotels[k].Stars}\nБал: {baseHotels[k].Score:f}\n" +
+                            $"Кількість оцінок: {baseHotels[k].Reviews}\n" +
+                            $"Ціна: {baseHotels[k].Price:f} " +
+                            $"{baseHotels[k].Currency}\nId отеля: {baseHotels[k].Hotel_id}",
+                            replyMarkup: inlineKeyboard2);
+                    }
+                    else { await botClient.SendTextMessageAsync(message.Chat.Id, "Список пустий"); }
 
                 }
             }
@@ -128,33 +168,87 @@ namespace TelegramBot
         private async Task HanlderCallBackQuertAsync(ITelegramBotClient botClient, CallbackQuery callback)
         {
 
-            if (callback.Data == "button1" && k != 0)
+            if (callback.Data == "button1" && hotels != null)
             {
-                k--;
-                await botClient.SendPhotoAsync(callback.Message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"), 
-                    caption: $"{hotels.data.hotels[k].property.name}\nЗагальний опис: ({hotels.data.hotels[k].accessibilityLabel})\n\n" +
-                    $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore}\n" +
-                    $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
-                    $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value} " +
-                    $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}", 
-                    replyMarkup: inlineKeyboard);
+                if (k != 0)
+                {
+                    k--;
+                    await botClient.SendPhotoAsync(callback.Message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"),
+                            caption: $"{hotels.data.hotels[k].property.name}\n" +
+                            $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore:f}\n" +
+                            $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
+                            $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value:f} " +
+                            $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}",
+                            replyMarkup: inlineKeyboard);
+                }
+                else { await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Неможливо виконати"); }
             }
-            else if (callback.Data == "button2" && k <= hotels.data.hotels.Length && hotels != null)
+            else if (callback.Data == "button2" && hotels.data != null)
             {
                 k++;
-                await botClient.SendPhotoAsync(callback.Message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"), 
-                    caption: $"{hotels.data.hotels[k].property.name}\nЗагальний опис: ({hotels.data.hotels[k].accessibilityLabel})\n\n" +
-                    $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore}\n" +
-                    $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
-                    $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value} " +
-                    $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}",
-                    replyMarkup: inlineKeyboard);
+                if (k < hotels.data.hotels.Length)
+                {
+                    await botClient.SendPhotoAsync(callback.Message.Chat.Id, InputFile.FromUri($"{hotels.data.hotels[k].property.photoUrls[0]}"),
+                            caption: $"{hotels.data.hotels[k].property.name}\n" +
+                            $"Кількість зірок: {hotels.data.hotels[k].property.propertyClass}\nБал: {hotels.data.hotels[k].property.reviewScore:f}\n" +
+                            $"Кількість оцінок: {hotels.data.hotels[k].property.reviewCount}\n" +
+                            $"Ціна: {hotels.data.hotels[k].property.priceBreakdown.grossPrice.value:f} " +
+                            $"{hotels.data.hotels[k].property.priceBreakdown.grossPrice.currency}\nId отеля: {hotels.data.hotels[k].property.id}",
+                            replyMarkup: inlineKeyboard);                  
+                }
+                else { await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Неможливо виконати"); }
             }
-            else if (callback.Data == "button3" && k <= hotels.data.hotels.Length && hotels != null)
+            else if (callback.Data == "button3" && hotels != null)
             {
-                HotelClient hotelClient = new HotelClient();
-                hotelClient.InsertHotel(hotels, callback.Message.Chat.Id, k);
-                await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Додав");
+                if (k < hotels.data.hotels.Length)
+                {
+                    HotelClient hotelClient = new HotelClient();
+                    hotelClient.InsertHotel(hotels, callback.Message.Chat.Id, k);
+                    await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Додав");
+                }
+                else { await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Неможливо виконати"); }
+            }
+            else if (callback.Data == "button4" && baseHotels != null)
+            {
+                if (k != 0)
+                {
+                    k--;
+                    await botClient.SendPhotoAsync(callback.Message.Chat.Id, InputFile.FromUri($"{baseHotels[k].PhotoURL}"),
+                        caption: $"{baseHotels[k].Name}\n" +
+                        $"Кількість зірок: {baseHotels[k].Stars}\nБал: {baseHotels[k].Score:f}\n" +
+                        $"Кількість оцінок: {baseHotels[k].Reviews}\n" +
+                        $"Ціна: {baseHotels[k].Price:f} " +
+                        $"{baseHotels[k].Currency}\nId отеля: {baseHotels[k].Hotel_id}",
+                        replyMarkup: inlineKeyboard2);
+                }
+                else { await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Неможливо виконати"); }
+
+            }
+            else if (callback.Data == "button5" && baseHotels != null)
+            {
+                if (k < baseHotels.Count)
+                {
+                    k++;
+                    await botClient.SendPhotoAsync(callback.Message.Chat.Id, InputFile.FromUri($"{baseHotels[k].PhotoURL}"),
+                        caption: $"{baseHotels[k].Name}\n" +
+                        $"Кількість зірок: {baseHotels[k].Stars}\nБал: {baseHotels[k].Score:f}\n" +
+                        $"Кількість оцінок: {baseHotels[k].Reviews}\n" +
+                        $"Ціна: {baseHotels[k].Price:f} " +
+                        $"{baseHotels[k].Currency}\nId отеля: {baseHotels[k].Hotel_id}",
+                        replyMarkup: inlineKeyboard2);
+                }
+                else { await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Неможливо виконати"); }
+
+            }
+            else if (callback.Data == "button6" && baseHotels != null)
+            {
+                if (k < baseHotels.Count)
+                {
+                    HotelClient hotelClient = new HotelClient();
+                    hotelClient.DeleteHotel(baseHotels, callback.Message.Chat.Id, k);
+                    await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Видалив");
+                }
+                else { await botClient.SendTextMessageAsync(callback.Message.Chat.Id, "Неможливо виконати"); }
             }
         }
     }
