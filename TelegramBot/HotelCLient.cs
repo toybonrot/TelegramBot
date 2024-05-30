@@ -19,13 +19,14 @@ namespace TelegramBot
             _address = Constants.ApiAddress;
             _apihost = Constants.ApiHost;
         }
-        public async Task<SearchHotel> GetHotel(string city, string arrival, string departure, long user)
+        public async Task<SearchHotel> GetHotel(string city, string arrival, string departure, long user, string filters, double priceMax, int page)
         {
             var client = new HttpClient();
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Get,
-                RequestUri = new Uri(_address + $"/Search Hotel Controller?query={city}&arrival={arrival}&departure={departure}&user={user}"),
+                RequestUri = new Uri(_address + $"/Search Hotel Controller?query={city}&arrival={arrival}&departure={departure}&user={user}" +
+                $"&filters={filters}&priceMax={priceMax}&pageNum={page}"),
             };
             var response = await client.SendAsync(request);
 
@@ -77,5 +78,37 @@ namespace TelegramBot
             response.EnsureSuccessStatusCode();
 
         }
+        public async Task<string> GetFilterId(string filter)
+        {
+            var client = new HttpClient();
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(_address + $"/Get Filter Controller?filter={filter}"),
+            };
+            var response = await client.SendAsync(request);
+
+            response.EnsureSuccessStatusCode();
+            var body = await response.Content.ReadAsStringAsync();
+
+            var result = body;
+            return result;
+        }
+        public async Task<List<string>> GetFilters()
+        {
+            var client = new HttpClient();
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(_address + $"/Read Available Filters Controller"),
+            };
+            var response = await client.SendAsync(request);
+
+            response.EnsureSuccessStatusCode();
+            var body = await response.Content.ReadAsStringAsync();
+            var result = JsonConvert.DeserializeObject<List<string>>(body);
+            return result;
+        }
     }
+    
 }
