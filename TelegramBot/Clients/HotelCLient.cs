@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using TelegramBot;
-using static TelegramBot.SearchHotel;
+using TelegramBot.Models;
+using static TelegramBot.Models.SearchHotel;
 
-namespace TelegramBot
+namespace TelegramBot.Clients
 {
-    internal class HotelClient
+    public class HotelClient
     {
         private static string _address;
         private static string _apihost;
@@ -19,14 +19,14 @@ namespace TelegramBot
             _address = Constants.ApiAddress;
             _apihost = Constants.ApiHost;
         }
-        public async Task<SearchHotel> GetHotel(string city, string arrival, string departure, long user, string filters, double priceMax, int page)
+        public async Task<SearchHotel> GetHotel(string city, string arrival, string departure, long user, string filters, double priceMax, int page, string currency)
         {
             var client = new HttpClient();
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Get,
-                RequestUri = new Uri(_address + $"/Search Hotel Controller?query={city}&arrival={arrival}&departure={departure}&user={user}" +
-                $"&filters={filters}&priceMax={priceMax}&pageNum={page}"),
+                RequestUri = new Uri(_address + $"/Hotel Controller/Search Hotel?query={city}&arrival={arrival}&departure={departure}&user={user}" +
+                $"&filters={filters}&priceMax={priceMax}&pageNum={page}&currency={currency}"),
             };
             var response = await client.SendAsync(request);
 
@@ -42,7 +42,7 @@ namespace TelegramBot
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Post,
-                RequestUri = new Uri(_address + $"/Add Hotel Controller?id={hotel.data.hotels[i].property.id}&user={user}"),
+                RequestUri = new Uri(_address + $"/Hotel Controller/Add Hotel?id={hotel.data.hotels[i].property.id}&user={user}"),
             };
             var response = await client.SendAsync(request);
 
@@ -55,7 +55,7 @@ namespace TelegramBot
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Get,
-                RequestUri = new Uri(_address + $"/Read Hotel List Controller?user={user}"),
+                RequestUri = new Uri(_address + $"/Hotel Controller/Read Hotel List?user={user}"),
             };
             var response = await client.SendAsync(request);
 
@@ -71,7 +71,7 @@ namespace TelegramBot
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Delete,
-                RequestUri = new Uri(_address + $"/Delete Hotel Controller?id={hotel[i].Hotel_id}&user={user}"),
+                RequestUri = new Uri(_address + $"/Hotel Controller/Delete Hotel?id={hotel[i].Hotel_id}&user={user}"),
             };
             var response = await client.SendAsync(request);
 
@@ -84,7 +84,7 @@ namespace TelegramBot
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Get,
-                RequestUri = new Uri(_address + $"/Get Filter Controller?filter={filter}"),
+                RequestUri = new Uri(_address + $"/Hotel Controller/Get Filter?filter={filter}"),
             };
             var response = await client.SendAsync(request);
 
@@ -100,7 +100,7 @@ namespace TelegramBot
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Get,
-                RequestUri = new Uri(_address + $"/Read Available Filters Controller"),
+                RequestUri = new Uri(_address + $"/Hotel Controller/Read Available Filters"),
             };
             var response = await client.SendAsync(request);
 
@@ -109,6 +109,22 @@ namespace TelegramBot
             var result = JsonConvert.DeserializeObject<List<string>>(body);
             return result;
         }
+        public async Task<HotelDetails> GetDetails(int id, string arrivale, string departure, string currency)
+        {
+            var client = new HttpClient();
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(_address + $"/Hotel Controller/Get More Hotel Details?id={id}&" +
+                $"arrival={arrivale}&departure={departure}&currency={currency}"),
+            };
+            var response = await client.SendAsync(request);
+
+            response.EnsureSuccessStatusCode();
+            var body = await response.Content.ReadAsStringAsync();
+            var result = JsonConvert.DeserializeObject<HotelDetails>(body);
+            return result;
+        }
     }
-    
+
 }
